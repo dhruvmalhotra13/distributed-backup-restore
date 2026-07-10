@@ -23,19 +23,22 @@ public class BackupJobsController : ControllerBase
     private readonly IJobControlStore _control;
     private readonly StorageOptions _storage;
     private readonly HostPathTranslator _paths;
+    private readonly BackupJobService _jobs;
 
     public BackupJobsController(
         BackupDbContext db,
         IPublishEndpoint publish,
         IJobControlStore control,
         IOptions<StorageOptions> storage,
-        HostPathTranslator paths)
+        HostPathTranslator paths,
+        BackupJobService jobs)
     {
         _db = db;
         _publish = publish;
         _control = control;
         _storage = storage.Value;
         _paths = paths;
+        _jobs = jobs;
     }
 
     /// <summary>FR1: Create a backup job for a source folder.</summary>
@@ -49,28 +52,8 @@ public class BackupJobsController : ControllerBase
             return BadRequest(new { error = $"Source path not found: {request.SourcePath}" });
         }
 
-        var chunkSize = request.ChunkSizeBytes ?? _storage.ChunkSizeBytes;
-
-        var job = new BackupJob
-        {
-            BackupId = BackupIdFactory.NewId(),
-            BackupName = request.BackupName,
-            SourcePath = sourcePath,
-            Status = JobStatus.Queued
-        };
-
-        _db.BackupJobs.Add(job);
-        _db.JobEvents.Add(NewEvent(job.Id, "Created", $"Backup job queued for '{request.SourcePath}'."));
-        await _db.SaveChangesAsync(ct);
-
-        await _publish.Publish(new BackupRequested
-        {
-            JobId = job.Id,
-            BackupId = job.BackupId,
-            BackupName = job.BackupName,
-            SourcePath = job.SourcePath,
-            ChunkSizeBytes = chunkSize
-        }, ct);
+        var job = await _jobs.CreateAndQueueAsync(
+            sourcePath, request.BackupName, request.ChunkSizeBytes, "manual", ct);
 
         return CreatedAtAction(nameof(GetById), new { id = job.Id }, BackupJobResponse.From(job));
     }

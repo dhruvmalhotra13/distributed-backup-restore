@@ -15,6 +15,7 @@ public class BackupDbContext : DbContext
     public DbSet<Checkpoint> Checkpoints => Set<Checkpoint>();
     public DbSet<RestoreJob> RestoreJobs => Set<RestoreJob>();
     public DbSet<JobEvent> JobEvents => Set<JobEvent>();
+    public DbSet<BackupSchedule> BackupSchedules => Set<BackupSchedule>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
@@ -76,6 +77,15 @@ public class BackupDbContext : DbContext
             e.Property(x => x.EventType).IsRequired().HasMaxLength(64);
             e.Property(x => x.Message).IsRequired();
             e.HasIndex(x => x.JobId);
+        });
+
+        modelBuilder.Entity<BackupSchedule>(e =>
+        {
+            e.HasKey(x => x.Id);
+            e.Property(x => x.Name).IsRequired().HasMaxLength(256);
+            e.Property(x => x.SourcePath).IsRequired();
+            e.Property(x => x.CronExpression).IsRequired().HasMaxLength(128);
+            e.HasIndex(x => x.Enabled);
         });
     }
 }

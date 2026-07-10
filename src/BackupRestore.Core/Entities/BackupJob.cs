@@ -18,6 +18,12 @@ public class BackupJob
 
     public JobStatus Status { get; set; } = JobStatus.Queued;
 
+    /// <summary>Version number within a backup set (same BackupName). Starts at 1.</summary>
+    public int Version { get; set; } = 1;
+
+    /// <summary>Bytes that did NOT need to be stored thanks to incremental/dedup reuse.</summary>
+    public long DedupedBytes { get; set; }
+
     public long TotalBytes { get; set; }
 
     public long CopiedBytes { get; set; }

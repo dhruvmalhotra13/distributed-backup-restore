@@ -123,6 +123,7 @@ public class BackupProcessor
                 BackupId = job.BackupId,
                 RelativePath = relative,
                 SizeBytes = info.Length,
+                LastModifiedUtc = info.LastWriteTimeUtc,
                 ChunkCount = chunkCount
             });
             totalBytes += info.Length;
@@ -152,6 +153,9 @@ public class BackupProcessor
         job.CopiedBytes = ProgressCalculator.Monotonic(job.CopiedBytes, checkpoints.Values.Sum(c => c.BytesCompleted));
         job.FilesProcessed = files.Count(f => f.FileHash is not null);
 
+        // Incremental: files from the previous version of this backup set, keyed by path.
+        var previousFiles = await LoadPreviousFilesAsync(job, ct);
+
         var stopwatch = Stopwatch.StartNew();
         var bytesAtStart = job.CopiedBytes;
 
@@ -162,6 +166,37 @@ public class BackupProcessor
             if (file.FileHash is not null)
             {
                 continue; // already fully backed up
+            }
+
+            // Incremental fast-path: unchanged since the previous version
+            // (same path, size and modified time) -> reuse its chunks, copy no bytes.
+            if (previousFiles.TryGetValue(file.RelativePath, out var prev) &&
+                prev.SizeBytes == file.SizeBytes &&
+                prev.LastModifiedUtc == file.LastModifiedUtc &&
+                prev.FileHash is not null)
+            {
+                foreach (var pc in prev.Chunks.OrderBy(c => c.ChunkIndex))
+                {
+                    _db.BackupChunks.Add(new BackupChunk
+                    {
+                        BackupFileId = file.Id,
+                        ChunkIndex = pc.ChunkIndex,
+                        ChunkSize = pc.ChunkSize,
+                        ChunkHash = pc.ChunkHash,
+                        VaultPath = pc.VaultPath,
+                        Status = ChunkStatus.Completed
+                    });
+                }
+
+                file.FileHash = prev.FileHash;
+                job.CopiedBytes = ProgressCalculator.Monotonic(job.CopiedBytes, job.CopiedBytes + file.SizeBytes);
+                job.ProgressPercent = ProgressCalculator.Percent(job.CopiedBytes, job.TotalBytes);
+                job.DedupedBytes += file.SizeBytes;
+                job.FilesProcessed++;
+                job.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+                await MaybePublishAsync(job, stopwatch, bytesAtStart, force: false, ct);
+                continue;
             }
 
             checkpoints.TryGetValue(file.Id, out var checkpoint);
@@ -188,6 +223,31 @@ public class BackupProcessor
         }
 
         return true;
+    }
+
+    /// <summary>
+    /// Loads the files (with chunks) of the most recent completed backup that
+    /// shares this job's BackupName, so unchanged files can be reused (incremental).
+    /// </summary>
+    private async Task<Dictionary<string, BackupFile>> LoadPreviousFilesAsync(BackupJob job, CancellationToken ct)
+    {
+        var previous = await _db.BackupJobs.AsNoTracking()
+            .Where(x => x.BackupName == job.BackupName && x.Id != job.Id && x.Status == JobStatus.Completed)
+            .OrderByDescending(x => x.Version)
+            .ThenByDescending(x => x.CreatedAt)
+            .FirstOrDefaultAsync(ct);
+
+        if (previous is null)
+        {
+            return new Dictionary<string, BackupFile>();
+        }
+
+        var files = await _db.BackupFiles.AsNoTracking()
+            .Where(x => x.BackupJobId == previous.Id)
+            .Include(x => x.Chunks)
+            .ToListAsync(ct);
+
+        return files.ToDictionary(f => f.RelativePath, f => f);
     }
 
     private async Task<JobControlSignal> ProcessFileChunksAsync(
@@ -224,10 +284,21 @@ public class BackupProcessor
             }
 
             var data = new ReadOnlyMemory<byte>(buffer, 0, bytesRead);
-            var vaultPath = _vault.GetChunkPath(job.BackupId, file.Id, index);
-            await _vault.WriteChunkAsync(vaultPath, data, ct);
+            var chunkHash = HashUtil.ComputeHex(data.Span);
 
-            await UpsertChunkAsync(file.Id, index, bytesRead, HashUtil.ComputeHex(data.Span), vaultPath, ct);
+            // Content-addressed dedup: only write the chunk if these exact bytes
+            // are not already in the vault (shared across all files and backups).
+            var vaultPath = _vault.GetCasChunkPath(chunkHash);
+            if (_vault.ChunkExists(vaultPath))
+            {
+                job.DedupedBytes += bytesRead;
+            }
+            else
+            {
+                await _vault.WriteChunkAsync(vaultPath, data, ct);
+            }
+
+            await UpsertChunkAsync(file.Id, index, bytesRead, chunkHash, vaultPath, ct);
 
             checkpoint = await UpsertCheckpointAsync(job.Id, file.Id, index, chunkSize, bytesRead, checkpoint, ct);
 
@@ -295,8 +366,11 @@ public class BackupProcessor
         {
             backupId = job.BackupId,
             backupName = job.BackupName,
+            version = job.Version,
             sourcePath = job.SourcePath,
             totalBytes = job.TotalBytes,
+            storedBytes = job.TotalBytes - job.DedupedBytes,
+            dedupedBytes = job.DedupedBytes,
             totalFiles = job.TotalFiles,
             createdAt = job.CreatedAt,
             files = files.Select(f => new
@@ -317,7 +391,10 @@ public class BackupProcessor
         {
             job.BackupId,
             job.BackupName,
+            job.Version,
             job.TotalBytes,
+            StoredBytes = job.TotalBytes - job.DedupedBytes,
+            job.DedupedBytes,
             job.TotalFiles,
             completedAt = DateTime.UtcNow
         }, new System.Text.Json.JsonSerializerOptions { WriteIndented = true });
@@ -332,7 +409,10 @@ public class BackupProcessor
         job.CopiedBytes = job.TotalBytes;
         job.ProgressPercent = 100d;
         job.UpdatedAt = DateTime.UtcNow;
-        await AddEventAsync(job.Id, "Completed", "Backup completed and integrity manifest written.", ct);
+        var stored = job.TotalBytes - job.DedupedBytes;
+        var savedPct = job.TotalBytes == 0 ? 0 : (int)Math.Round(100.0 * job.DedupedBytes / job.TotalBytes);
+        await AddEventAsync(job.Id, "Completed",
+            $"Backup v{job.Version} completed. Stored {stored} of {job.TotalBytes} bytes ({savedPct}% deduplicated).", ct);
         await _db.SaveChangesAsync(ct);
         await _vault.AppendLogAsync(job.BackupId, "Backup completed.", ct);
         await PublishAsync(job, "Backup completed.", ct);

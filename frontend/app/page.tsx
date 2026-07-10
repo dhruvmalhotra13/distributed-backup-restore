@@ -8,6 +8,7 @@ import { CreateBackupForm } from "@/components/CreateBackupForm";
 import { CreateRestoreForm } from "@/components/CreateRestoreForm";
 import { BackupJobCard } from "@/components/BackupJobCard";
 import { RestoreJobCard } from "@/components/RestoreJobCard";
+import { SchedulesPanel } from "@/components/SchedulesPanel";
 
 export default function Dashboard() {
   const { progress, connected } = useProgress();
@@ -81,6 +82,8 @@ export default function Dashboard() {
             </h2>
             <CreateRestoreForm completedBackups={completedBackups} onCreated={refresh} />
           </section>
+
+          <SchedulesPanel />
         </div>
 
         <div className="space-y-6 lg:col-span-2">

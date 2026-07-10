@@ -17,6 +17,9 @@ public class BackupFile
 
     public long SizeBytes { get; set; }
 
+    /// <summary>Last-write time of the source file; used for incremental change detection.</summary>
+    public DateTime LastModifiedUtc { get; set; }
+
     /// <summary>SHA-256 hash of the full original file, set once fully backed up.</summary>
     public string? FileHash { get; set; }
 

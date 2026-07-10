@@ -7,6 +7,10 @@ distributed-systems concepts: asynchronous job orchestration, chunk-based
 transfer, real-time progress, checkpointing, worker-crash recovery, retries,
 and hash-based integrity validation.
 
+It also does **content-addressed deduplication**, **incremental versioned
+backups**, and **cron-scheduled backups** — so re-backing up an unchanged
+folder stores zero new bytes, and changed files only store their changed data.
+
 > Anyone can clone this repository and run the whole system locally with a
 > single command — only Docker is required.
 
@@ -142,6 +146,27 @@ against the original.
 | `GET  /restore-jobs/{id}`         | Restore job details / progress           |
 | `GET  /jobs/{id}/events`          | Job event timeline                       |
 | `GET  /jobs/{id}/progress`        | Latest cached progress snapshot          |
+| `POST /schedules`                 | Create a cron backup schedule            |
+| `GET  /schedules`                 | List schedules                           |
+| `POST /schedules/{id}/toggle`     | Enable / disable a schedule              |
+| `DELETE /schedules/{id}`          | Delete a schedule                        |
+
+---
+
+## Deduplication, versioning & scheduling
+
+- **Content-addressed deduplication** — every chunk is stored once, keyed by its
+  SHA-256 hash under `BackupVault/_cas/`. Identical chunks (within a file, across
+  files, or across backups) are never stored twice. Writes are atomic
+  (temp-file + rename), so concurrent/scaled workers can dedup safely.
+- **Incremental versioned backups** — backups that share a name form a version
+  chain (`v1`, `v2`, …). On each run, files unchanged since the previous version
+  (matched by size + modified time) are reused with **zero bytes copied**; only
+  new/changed data is stored. The dashboard shows the dedup savings per backup.
+- **Scheduled backups** — define a standard 5-field cron expression (e.g.
+  `0 2 * * *` for daily at 02:00 UTC). A background scheduler in the API queues a
+  new versioned backup whenever a schedule is due. Manage schedules from the
+  dashboard or the `/schedules` API.
 
 ---
 

@@ -28,6 +28,10 @@ var hostPaths = builder.Configuration.GetSection("HostPaths").Get<HostPathOption
 builder.Services.AddSingleton(hostPaths);
 builder.Services.AddSingleton<HostPathTranslator>();
 
+// Shared backup-job creation (versioning + publish) and the cron scheduler.
+builder.Services.AddScoped<BackupJobService>();
+builder.Services.AddHostedService<ScheduleRunnerService>();
+
 const string CorsPolicy = "frontend";
 builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy =>
     policy.SetIsOriginAllowed(_ => true)

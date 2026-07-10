@@ -9,6 +9,12 @@ public interface IBackupVault
     /// <summary>Vault-relative path where a given chunk is stored.</summary>
     string GetChunkPath(string backupId, Guid fileId, int chunkIndex);
 
+    /// <summary>
+    /// Content-addressed vault path for a chunk, keyed by its hash. Identical
+    /// chunks (across files and backups) map to the same path, enabling dedup.
+    /// </summary>
+    string GetCasChunkPath(string chunkHash);
+
     /// <summary>Writes chunk bytes to the vault (creating directories as needed).</summary>
     Task WriteChunkAsync(string vaultRelativePath, ReadOnlyMemory<byte> data, CancellationToken cancellationToken);
 

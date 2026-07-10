@@ -24,3 +24,18 @@ public record CreateRestoreJobRequest
     [Required]
     public string RestorePath { get; init; } = string.Empty;
 }
+
+public record CreateScheduleRequest
+{
+    [Required]
+    [MaxLength(256)]
+    public string Name { get; init; } = string.Empty;
+
+    [Required]
+    public string SourcePath { get; init; } = string.Empty;
+
+    /// <summary>Standard 5-field cron expression, e.g. "0 2 * * *" (daily 02:00 UTC).</summary>
+    [Required]
+    [MaxLength(128)]
+    public string CronExpression { get; init; } = string.Empty;
+}

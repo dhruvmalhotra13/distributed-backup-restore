@@ -9,8 +9,11 @@ public record BackupJobResponse
     public string BackupName { get; init; } = string.Empty;
     public string SourcePath { get; init; } = string.Empty;
     public string Status { get; init; } = string.Empty;
+    public int Version { get; init; }
     public long TotalBytes { get; init; }
     public long CopiedBytes { get; init; }
+    public long DedupedBytes { get; init; }
+    public long StoredBytes { get; init; }
     public int TotalFiles { get; init; }
     public int FilesProcessed { get; init; }
     public double ProgressPercent { get; init; }
@@ -25,8 +28,11 @@ public record BackupJobResponse
         BackupName = job.BackupName,
         SourcePath = job.SourcePath,
         Status = job.Status.ToString(),
+        Version = job.Version,
         TotalBytes = job.TotalBytes,
         CopiedBytes = job.CopiedBytes,
+        DedupedBytes = job.DedupedBytes,
+        StoredBytes = job.TotalBytes - job.DedupedBytes,
         TotalFiles = job.TotalFiles,
         FilesProcessed = job.FilesProcessed,
         ProgressPercent = job.ProgressPercent,
@@ -81,5 +87,29 @@ public record JobEventResponse
         EventType = e.EventType,
         Message = e.Message,
         Timestamp = e.Timestamp
+    };
+}
+
+public record ScheduleResponse
+{
+    public Guid Id { get; init; }
+    public string Name { get; init; } = string.Empty;
+    public string SourcePath { get; init; } = string.Empty;
+    public string CronExpression { get; init; } = string.Empty;
+    public bool Enabled { get; init; }
+    public DateTime? LastRunAt { get; init; }
+    public DateTime? NextRunAt { get; init; }
+    public DateTime CreatedAt { get; init; }
+
+    public static ScheduleResponse From(BackupSchedule s) => new()
+    {
+        Id = s.Id,
+        Name = s.Name,
+        SourcePath = s.SourcePath,
+        CronExpression = s.CronExpression,
+        Enabled = s.Enabled,
+        LastRunAt = s.LastRunAt,
+        NextRunAt = s.NextRunAt,
+        CreatedAt = s.CreatedAt
     };
 }

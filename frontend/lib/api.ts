@@ -2,8 +2,10 @@ import type {
   BackupJob,
   CreateBackupJobRequest,
   CreateRestoreJobRequest,
+  CreateScheduleRequest,
   JobEvent,
   RestoreJob,
+  Schedule,
 } from "./types";
 
 export const API_BASE =
@@ -58,4 +60,12 @@ export const api = {
     request<RestoreJob>("/restore-jobs", { method: "POST", body: JSON.stringify(body) }),
 
   getEvents: (jobId: string) => request<JobEvent[]>(`/jobs/${jobId}/events`),
+
+  listSchedules: () => request<Schedule[]>("/schedules"),
+  createSchedule: (body: CreateScheduleRequest) =>
+    request<Schedule>("/schedules", { method: "POST", body: JSON.stringify(body) }),
+  toggleSchedule: (id: string) =>
+    request<Schedule>(`/schedules/${id}/toggle`, { method: "POST" }),
+  deleteSchedule: (id: string) =>
+    request<void>(`/schedules/${id}`, { method: "DELETE" }),
 };

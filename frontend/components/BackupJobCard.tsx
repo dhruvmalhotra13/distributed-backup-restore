@@ -68,6 +68,9 @@ export function BackupJobCard({
         <div>
           <div className="flex items-center gap-2">
             <h3 className="font-semibold text-slate-800">{job.backupName}</h3>
+            <span className="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-600">
+              v{job.version}
+            </span>
             <StatusBadge status={status} />
           </div>
           <p className="mt-0.5 font-mono text-xs text-slate-500">{job.backupId}</p>
@@ -92,6 +95,14 @@ export function BackupJobCard({
         {status === "Running" && <span>{formatThroughput(throughput)}</span>}
         <span className="ml-auto">{formatDate(job.updatedAt)}</span>
       </div>
+
+      {status === "Completed" && job.dedupedBytes > 0 && (
+        <p className="mt-1 text-xs text-emerald-600">
+          Deduplicated {formatBytes(job.dedupedBytes)} of {formatBytes(job.totalBytes)} (
+          {Math.round((100 * job.dedupedBytes) / Math.max(1, job.totalBytes))}% saved) — stored{" "}
+          {formatBytes(job.storedBytes)}
+        </p>
+      )}
 
       {(live?.message || job.errorMessage) && (
         <p

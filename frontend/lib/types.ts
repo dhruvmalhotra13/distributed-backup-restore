@@ -13,8 +13,11 @@ export interface BackupJob {
   backupName: string;
   sourcePath: string;
   status: JobStatus;
+  version: number;
   totalBytes: number;
   copiedBytes: number;
+  dedupedBytes: number;
+  storedBytes: number;
   totalFiles: number;
   filesProcessed: number;
   progressPercent: number;
@@ -68,4 +71,21 @@ export interface CreateBackupJobRequest {
 export interface CreateRestoreJobRequest {
   backupId: string;
   restorePath: string;
+}
+
+export interface Schedule {
+  id: string;
+  name: string;
+  sourcePath: string;
+  cronExpression: string;
+  enabled: boolean;
+  lastRunAt?: string | null;
+  nextRunAt?: string | null;
+  createdAt: string;
+}
+
+export interface CreateScheduleRequest {
+  name: string;
+  sourcePath: string;
+  cronExpression: string;
 }
