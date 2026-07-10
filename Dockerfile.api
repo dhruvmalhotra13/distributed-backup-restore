@@ -1,0 +1,20 @@
+FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
+WORKDIR /src
+
+COPY BackupRestore.sln .
+COPY src/BackupRestore.Core/BackupRestore.Core.csproj src/BackupRestore.Core/
+COPY src/BackupRestore.Infrastructure/BackupRestore.Infrastructure.csproj src/BackupRestore.Infrastructure/
+COPY src/BackupRestore.Api/BackupRestore.Api.csproj src/BackupRestore.Api/
+COPY src/BackupRestore.Worker/BackupRestore.Worker.csproj src/BackupRestore.Worker/
+COPY tests/BackupRestore.Tests/BackupRestore.Tests.csproj tests/BackupRestore.Tests/
+RUN dotnet restore src/BackupRestore.Api/BackupRestore.Api.csproj
+
+COPY . .
+RUN dotnet publish src/BackupRestore.Api/BackupRestore.Api.csproj -c Release -o /app --no-restore
+
+FROM mcr.microsoft.com/dotnet/aspnet:8.0 AS runtime
+WORKDIR /app
+COPY --from=build /app .
+ENV ASPNETCORE_URLS=http://+:8080
+EXPOSE 8080
+ENTRYPOINT ["dotnet", "BackupRestore.Api.dll"]

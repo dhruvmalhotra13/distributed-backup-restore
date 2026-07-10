@@ -1,0 +1,7 @@
+Hello from the Distributed Backup & Restore Platform!
+
+This is a small sample file that ships with the repository so that a backup
+job can be run immediately after `docker compose up`.
+
+Inside the containers this folder is mounted at /data/source, so create a
+backup job with sourcePath "/data/source".

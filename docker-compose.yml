@@ -1,0 +1,84 @@
+name: distributed-backup-restore
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER:-backup}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-backup}
+      POSTGRES_DB: ${POSTGRES_DB:-backup}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-backup}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "15672:15672" # management UI
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.api
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-backup};Username=${POSTGRES_USER:-backup};Password=${POSTGRES_PASSWORD:-backup}"
+      ConnectionStrings__Redis: "redis:6379"
+      RabbitMq__Host: "rabbitmq"
+      Storage__VaultPath: "/data/BackupVault"
+      Storage__ChunkSizeBytes: "4194304"
+    ports:
+      - "${API_PORT:-8080}:8080"
+    volumes:
+      - ${SOURCE_DIR:-./sample-data}:/data/source
+      - ${VAULT_DIR:-./data/BackupVault}:/data/BackupVault
+
+  worker:
+    build:
+      context: .
+      dockerfile: Dockerfile.worker
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    environment:
+      ConnectionStrings__Postgres: "Host=postgres;Port=5432;Database=${POSTGRES_DB:-backup};Username=${POSTGRES_USER:-backup};Password=${POSTGRES_PASSWORD:-backup}"
+      ConnectionStrings__Redis: "redis:6379"
+      RabbitMq__Host: "rabbitmq"
+      Storage__VaultPath: "/data/BackupVault"
+      Storage__ChunkSizeBytes: "4194304"
+    volumes:
+      - ${SOURCE_DIR:-./sample-data}:/data/source
+      - ${VAULT_DIR:-./data/BackupVault}:/data/BackupVault
+    # Scale horizontally with:  docker compose up --scale worker=3
+    deploy:
+      replicas: 1
+
+volumes:
+  postgres-data:

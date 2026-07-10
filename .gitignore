@@ -1,0 +1,26 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Env & local data
+.env
+data/
+demo-data/
+
+# Vault artifacts if generated at repo root
+BackupVault/
+
+# Node / frontend (later phase)
+node_modules/
+.next/
+frontend/out/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log

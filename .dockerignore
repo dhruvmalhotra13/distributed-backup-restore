@@ -1,0 +1,12 @@
+# Docker build context excludes
+**/bin/
+**/obj/
+**/.vs/
+**/node_modules/
+data/
+demo-data/
+*.user
+.git/
+.github/
+frontend/
+README.md
