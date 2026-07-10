@@ -55,30 +55,57 @@ and hash-based integrity validation.
 
 ---
 
-## Quick start (Docker — the only prerequisite)
+## Getting started — run it locally (Docker only)
 
-1. **Install Docker Desktop** and make sure it is running.
-2. Copy the environment template and set `HOST_HOME` to your user folder:
+Everything (database, message queue, cache, API, worker, and web UI) runs in
+containers. You do **not** need .NET, Node, PostgreSQL, etc. installed on your
+machine — only Docker and Git.
+
+### Prerequisites
+
+| Requirement | Notes |
+| ----------- | ----- |
+| **Docker Desktop** | Installed and running. On **Windows** this needs **WSL2** (Docker Desktop enables it; a one-time reboot may be required the first time). |
+| **Git** | To clone the repository. |
+| Free ports | `3000` (UI), `8080` (API), `15672` (RabbitMQ UI). |
+
+### Steps
+
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/dhruvmalhotra13/distributed-backup-restore.git
+   cd distributed-backup-restore
+   ```
+2. **Create your `.env`** from the template and set `HOST_HOME` to your user folder:
    ```bash
    cp .env.example .env
-   # then edit .env: HOST_HOME=C:/Users/you   (macOS/Linux: /Users/you or /home/you)
    ```
-3. Start everything:
+   Then edit `.env`:
+   - Windows: `HOST_HOME=C:/Users/yourname`
+   - macOS: `HOST_HOME=/Users/yourname`
+   - Linux: `HOST_HOME=/home/yourname`
+
+   Your whole user folder is mounted once into the containers at `/host`, so you
+   can back up or restore **any folder under it just by typing its real path**
+   (e.g. `C:\Users\yourname\Desktop\MyProject`) — no per-folder config edits.
+3. **Start everything**
    ```bash
    docker compose up --build
    ```
-   This launches PostgreSQL, Redis, RabbitMQ, the API, a worker, and the web
-   dashboard. Database migrations are applied automatically on startup.
-4. Open the **dashboard at http://localhost:3000** to create and monitor jobs
-   with live progress.
-   The API docs are at **http://localhost:8080/swagger** and the RabbitMQ
-   management UI at **http://localhost:15672** (guest/guest).
+   This launches PostgreSQL, Redis, RabbitMQ, the API, a worker, and the
+   dashboard. Database migrations are applied automatically. The first run
+   downloads images and builds the apps, so it takes a few minutes.
+4. **Open the app**
+   - **Dashboard:** http://localhost:3000 — create backups/restores and watch live progress.
+   - **API docs (Swagger):** http://localhost:8080/swagger
+   - **RabbitMQ UI:** http://localhost:15672 (guest / guest)
+5. **Stop when done**
+   ```bash
+   docker compose down          # add -v to also wipe the database volume
+   ```
 
-Your whole user folder (`HOST_HOME`) is mounted once into the containers at
-`/host`. You can back up or restore **any folder under it just by typing its
-real path** (e.g. `C:\Users\you\Desktop\MyProject`) in the dashboard — the API
-translates it automatically. All backups are stored in a single fixed vault
-(`./data/BackupVault` on your host).
+All backups are stored in a single fixed vault at `./data/BackupVault` inside
+the repo folder.
 
 ### Run a backup
 
@@ -139,7 +166,7 @@ It talks to the API over REST and subscribes to the SignalR hub at
 ## Interview demo script
 
 1. `docker compose up --build` — all services become healthy.
-2. Create a backup of `/data/source` and watch progress climb by **bytes**.
+2. Create a backup of a real folder (e.g. `C:\Users\you\Desktop\MyProject`) and watch progress climb by **bytes**.
 3. Kill the worker mid-backup to prove crash recovery:
    ```bash
    docker compose restart worker
@@ -183,6 +210,21 @@ dotnet test
 dotnet tool install --global dotnet-ef
 dotnet ef migrations add <Name> -p src/BackupRestore.Infrastructure -s src/BackupRestore.Infrastructure
 ```
+
+---
+
+## Troubleshooting
+
+| Symptom | Fix |
+| ------- | --- |
+| `docker: command not found` or "Cannot connect to the Docker daemon" | Docker Desktop isn't running. Start it and wait until it says **Engine running**. |
+| On Windows: *"WSL2 is not installed / virtualization not enabled"* | Run `wsl --install`, reboot, and make sure virtualization is enabled in your BIOS. Docker Desktop needs the WSL2 backend. |
+| Port already in use (`3000`, `8080`, `15672`) | Stop whatever is using the port, or change the mapping in `.env` (`FRONTEND_PORT`, `API_PORT`). |
+| Dashboard loads but shows "Offline / can't reach API" | The API container may still be starting (it waits for the database). Give it a few seconds, or check `docker compose logs api`. |
+| "Source path not found" when creating a backup | The folder must be **inside your `HOST_HOME`**. Double-check the path and that `HOST_HOME` in `.env` points at your user folder. Restart with `docker compose up -d` after editing `.env`. |
+| A backup/restore job is stuck in `Queued` | The worker may not have connected to RabbitMQ. Check `docker compose logs worker`; `docker compose restart worker` if needed. |
+| OneDrive files won't back up | Cloud-only files aren't on disk. In OneDrive, choose **"Always keep on this device"** for the folder first. |
+| Want a totally clean slate | `docker compose down -v` removes containers **and** the database volume. |
 
 ---
 
