@@ -28,10 +28,13 @@ services:
     ports:
       - "15672:15672" # management UI
     healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      # check_port_connectivity confirms the AMQP listener (5672) is actually
+      # accepting connections, not just that the Erlang node is up.
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_port_connectivity"]
       interval: 10s
-      timeout: 5s
-      retries: 10
+      timeout: 10s
+      retries: 15
+      start_period: 30s
 
   api:
     build:
