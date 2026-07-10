@@ -58,9 +58,10 @@ and hash-based integrity validation.
 ## Quick start (Docker — the only prerequisite)
 
 1. **Install Docker Desktop** and make sure it is running.
-2. Copy the environment template and adjust paths if you like:
+2. Copy the environment template and set `HOST_HOME` to your user folder:
    ```bash
    cp .env.example .env
+   # then edit .env: HOST_HOME=C:/Users/you   (macOS/Linux: /Users/you or /home/you)
    ```
 3. Start everything:
    ```bash
@@ -73,14 +74,17 @@ and hash-based integrity validation.
    The API docs are at **http://localhost:8080/swagger** and the RabbitMQ
    management UI at **http://localhost:15672** (guest/guest).
 
-By default the repository's `sample-data/` folder is mounted into the containers
-at `/data/source`, and the vault is written to `./data/BackupVault` on your host.
+Your whole user folder (`HOST_HOME`) is mounted once into the containers at
+`/host`. You can back up or restore **any folder under it just by typing its
+real path** (e.g. `C:\Users\you\Desktop\MyProject`) in the dashboard — the API
+translates it automatically. All backups are stored in a single fixed vault
+(`./data/BackupVault` on your host).
 
 ### Run a backup
 
 `POST /backup-jobs`
 ```json
-{ "sourcePath": "/data/source", "backupName": "FirstBackup" }
+{ "sourcePath": "C:/Users/you/Desktop/MyProject", "backupName": "FirstBackup" }
 ```
 The response includes a `backupId` (e.g. `backup-a1b2c3d4`) and a job `id`.
 Watch progress via `GET /jobs/{id}/progress` or the SignalR hub at `/hubs/progress`.
@@ -89,7 +93,7 @@ Watch progress via `GET /jobs/{id}/progress` or the SignalR hub at `/hubs/progre
 
 `POST /restore-jobs`
 ```json
-{ "backupId": "backup-a1b2c3d4", "restorePath": "/data/source/_restored" }
+{ "backupId": "backup-a1b2c3d4", "restorePath": "C:/Users/you/Desktop/Restored" }
 ```
 The restore worker reconstructs files and validates each one's SHA-256 hash
 against the original.

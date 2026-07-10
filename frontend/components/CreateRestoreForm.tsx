@@ -12,7 +12,7 @@ export function CreateRestoreForm({
   onCreated: () => void;
 }) {
   const [backupId, setBackupId] = useState("");
-  const [restorePath, setRestorePath] = useState("/data/source/_restored");
+  const [restorePath, setRestorePath] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -60,8 +60,12 @@ export function CreateRestoreForm({
           value={restorePath}
           onChange={(e) => setRestorePath(e.target.value)}
           required
+          placeholder="C:\Users\you\Desktop\Restored"
           className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
+        <p className="mt-1 text-xs text-slate-500">
+          Any folder inside your user home; it will be created if missing.
+        </p>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}
       <button

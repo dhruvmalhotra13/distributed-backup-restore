@@ -22,6 +22,12 @@ builder.Services.AddInfrastructure(builder.Configuration);
 builder.Services.AddMessaging(builder.Configuration);
 builder.Services.AddHostedService<ProgressRelayService>();
 
+// Lets users type any real host path (under the mounted root) in the UI; the
+// API translates it to the container-visible path before persisting the job.
+var hostPaths = builder.Configuration.GetSection("HostPaths").Get<HostPathOptions>() ?? new HostPathOptions();
+builder.Services.AddSingleton(hostPaths);
+builder.Services.AddSingleton<HostPathTranslator>();
+
 const string CorsPolicy = "frontend";
 builder.Services.AddCors(options => options.AddPolicy(CorsPolicy, policy =>
     policy.SetIsOriginAllowed(_ => true)

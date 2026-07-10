@@ -4,7 +4,7 @@ import { useState } from "react";
 import { api } from "@/lib/api";
 
 export function CreateBackupForm({ onCreated }: { onCreated: () => void }) {
-  const [sourcePath, setSourcePath] = useState("/data/source");
+  const [sourcePath, setSourcePath] = useState("");
   const [backupName, setBackupName] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,11 +46,11 @@ export function CreateBackupForm({ onCreated }: { onCreated: () => void }) {
           value={sourcePath}
           onChange={(e) => setSourcePath(e.target.value)}
           required
+          placeholder="C:\Users\you\Desktop\MyProject"
           className="w-full rounded-md border border-slate-300 px-3 py-2 font-mono text-sm outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500"
         />
         <p className="mt-1 text-xs text-slate-500">
-          Path as seen by the worker (Docker mounts your folder at{" "}
-          <code className="rounded bg-slate-100 px-1">/data/source</code>).
+          The real folder on your machine (any folder inside your user home).
         </p>
       </div>
       {error && <p className="text-sm text-red-600">{error}</p>}

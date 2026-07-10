@@ -1,4 +1,5 @@
 using BackupRestore.Api.Dtos;
+using BackupRestore.Api.Services;
 using BackupRestore.Core.Contracts;
 using BackupRestore.Core.Entities;
 using BackupRestore.Core.Enums;
@@ -15,11 +16,13 @@ public class RestoreJobsController : ControllerBase
 {
     private readonly BackupDbContext _db;
     private readonly IPublishEndpoint _publish;
+    private readonly HostPathTranslator _paths;
 
-    public RestoreJobsController(BackupDbContext db, IPublishEndpoint publish)
+    public RestoreJobsController(BackupDbContext db, IPublishEndpoint publish, HostPathTranslator paths)
     {
         _db = db;
         _publish = publish;
+        _paths = paths;
     }
 
     /// <summary>FR10: Create a restore job for a completed backup version.</summary>
@@ -40,10 +43,12 @@ public class RestoreJobsController : ControllerBase
             return BadRequest(new { error = $"Backup '{request.BackupId}' is not completed (status {backup.Status})." });
         }
 
+        var restorePath = _paths.ToContainerPath(request.RestorePath);
+
         var job = new RestoreJob
         {
             BackupId = request.BackupId,
-            RestorePath = request.RestorePath,
+            RestorePath = restorePath,
             Status = JobStatus.Queued,
             TotalBytes = backup.TotalBytes
         };

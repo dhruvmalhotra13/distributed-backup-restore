@@ -53,10 +53,15 @@ services:
       RabbitMq__Host: "rabbitmq"
       Storage__VaultPath: "/data/BackupVault"
       Storage__ChunkSizeBytes: "4194304"
+      # Lets the UI accept any real host path under HOST_HOME and translate it.
+      HostPaths__WindowsRoot: "${HOST_HOME:-/host}"
+      HostPaths__ContainerRoot: "/host"
     ports:
       - "${API_PORT:-8080}:8080"
     volumes:
-      - ${SOURCE_DIR:-./sample-data}:/data/source
+      # Whole user folder mounted once, so any folder under it can be backed up
+      # or restored by typing its path in the UI — no per-folder config edits.
+      - ${HOST_HOME:-./sample-data}:/host
       - ${VAULT_DIR:-./data/BackupVault}:/data/BackupVault
 
   worker:
@@ -77,7 +82,7 @@ services:
       Storage__VaultPath: "/data/BackupVault"
       Storage__ChunkSizeBytes: "4194304"
     volumes:
-      - ${SOURCE_DIR:-./sample-data}:/data/source
+      - ${HOST_HOME:-./sample-data}:/host
       - ${VAULT_DIR:-./data/BackupVault}:/data/BackupVault
     # Scale horizontally with:  docker compose up --scale worker=3
     deploy:

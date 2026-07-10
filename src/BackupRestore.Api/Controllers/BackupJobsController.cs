@@ -1,4 +1,5 @@
 using BackupRestore.Api.Dtos;
+using BackupRestore.Api.Services;
 using BackupRestore.Core;
 using BackupRestore.Core.Abstractions;
 using BackupRestore.Core.Contracts;
@@ -21,17 +22,20 @@ public class BackupJobsController : ControllerBase
     private readonly IPublishEndpoint _publish;
     private readonly IJobControlStore _control;
     private readonly StorageOptions _storage;
+    private readonly HostPathTranslator _paths;
 
     public BackupJobsController(
         BackupDbContext db,
         IPublishEndpoint publish,
         IJobControlStore control,
-        IOptions<StorageOptions> storage)
+        IOptions<StorageOptions> storage,
+        HostPathTranslator paths)
     {
         _db = db;
         _publish = publish;
         _control = control;
         _storage = storage.Value;
+        _paths = paths;
     }
 
     /// <summary>FR1: Create a backup job for a source folder.</summary>
@@ -39,7 +43,8 @@ public class BackupJobsController : ControllerBase
     public async Task<ActionResult<BackupJobResponse>> Create(
         [FromBody] CreateBackupJobRequest request, CancellationToken ct)
     {
-        if (!Directory.Exists(request.SourcePath))
+        var sourcePath = _paths.ToContainerPath(request.SourcePath);
+        if (!Directory.Exists(sourcePath))
         {
             return BadRequest(new { error = $"Source path not found: {request.SourcePath}" });
         }
@@ -50,7 +55,7 @@ public class BackupJobsController : ControllerBase
         {
             BackupId = BackupIdFactory.NewId(),
             BackupName = request.BackupName,
-            SourcePath = request.SourcePath,
+            SourcePath = sourcePath,
             Status = JobStatus.Queued
         };
 
