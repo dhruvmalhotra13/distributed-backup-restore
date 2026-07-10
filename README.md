@@ -15,7 +15,7 @@ and hash-based integrity validation.
 ## Architecture
 
 ```
- React/Next.js (later)        ASP.NET Core API            .NET Worker(s)
+ React/Next.js dashboard        ASP.NET Core API            .NET Worker(s)
  ┌─────────────────┐  HTTP   ┌──────────────────┐  AMQP  ┌──────────────────┐
  │ Dashboard       │ ──────▶ │ Job controllers  │ ─────▶ │ Backup DataMover │
  │ live progress   │ ◀─────  │ SignalR hub      │        │ Restore DataMover│
@@ -44,6 +44,7 @@ and hash-based integrity validation.
 
 | Layer            | Technology                          |
 | ---------------- | ----------------------------------- |
+| Frontend         | Next.js 16 (React 19) + Tailwind    |
 | API              | ASP.NET Core 8 (Web API + SignalR)  |
 | Worker           | .NET 8 Worker Service + MassTransit |
 | Messaging        | RabbitMQ                            |
@@ -65,10 +66,12 @@ and hash-based integrity validation.
    ```bash
    docker compose up --build
    ```
-   This launches PostgreSQL, Redis, RabbitMQ, the API, and a worker. Database
-   migrations are applied automatically on startup.
-4. Open the API docs at **http://localhost:8080/swagger**.
-   RabbitMQ management UI is at **http://localhost:15672** (guest/guest).
+   This launches PostgreSQL, Redis, RabbitMQ, the API, a worker, and the web
+   dashboard. Database migrations are applied automatically on startup.
+4. Open the **dashboard at http://localhost:3000** to create and monitor jobs
+   with live progress.
+   The API docs are at **http://localhost:8080/swagger** and the RabbitMQ
+   management UI at **http://localhost:15672** (guest/guest).
 
 By default the repository's `sample-data/` folder is mounted into the containers
 at `/data/source`, and the vault is written to `./data/BackupVault` on your host.
@@ -108,6 +111,24 @@ against the original.
 | `GET  /restore-jobs/{id}`         | Restore job details / progress           |
 | `GET  /jobs/{id}/events`          | Job event timeline                       |
 | `GET  /jobs/{id}/progress`        | Latest cached progress snapshot          |
+
+---
+
+## Frontend (run in development)
+
+The dashboard lives in [`frontend/`](frontend) and is a Next.js app. It is built
+and served automatically by `docker compose`, but you can also run it standalone
+against a locally-running API:
+
+```bash
+cd frontend
+cp .env.local.example .env.local   # NEXT_PUBLIC_API_BASE=http://localhost:8080
+npm install
+npm run dev                        # http://localhost:3000
+```
+
+It talks to the API over REST and subscribes to the SignalR hub at
+`/hubs/progress` for real-time job progress.
 
 ---
 
